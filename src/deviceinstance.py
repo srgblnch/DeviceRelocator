@@ -21,7 +21,7 @@ waitTime = 0.3
 #    InstancesDevices[each] = astor[each].get_device_list()
 
 class DeviceInstance:
-    def __init__(self,instance,locations):
+    def __init__(self,instance,locations,logger=None):
         self._astor = Astor()
         self._instance = instance
         self._locations = {}
@@ -30,6 +30,7 @@ class DeviceInstance:
         self._astor.load_by_name(instance)
         self._movingThread = None
         self._runLevel = None
+        self._logger = logger
 
     def getName(self):
         return self._instance
@@ -73,8 +74,12 @@ class DeviceInstance:
         self._movingThread.start()
 
     def _backgroundMovement(self,tag):
-        print(">"*10+" %s.BackgroundMovement from %s "%(self._instance,self.currentLocation())+">"*10)
-        
+        msg = "In %s.BackgroundMovement() from %s to %s"\
+              %(self._instance,self.currentLocation(),tag)
+        if self._logger:
+            self._logger.debug(msg)
+        else:
+            print(">"*10+" "+msg+" "+">"*10)
         try:
             runLevel = self._runLevel or self.currentRunLevel()
             hostname = self._locations[tag]
@@ -86,8 +91,16 @@ class DeviceInstance:
             if not self.isAlive():
                 self._astor.start_servers([self._instance])
         except Exception,e:
-            print("!",e)
-        print("\n"+"<"*10+" %s.BackgroundMovement to %s "%(self._instance,self.currentLocation())+"<"*10)
+            msg = "In %s.BackgroundMovement() exception: %s"%(self._instance,e)
+            if self._logger:
+                self._logger.error(msg)
+            else:
+                print(msg)
+        msg = "In %s.BackgroundMovement done to %s"%(self._instance,self.currentLocation())
+        if self._logger:
+            self._logger.debug(msg)
+        else:
+            print("\n"+"<"*10+" "+msg+" "+"<"*10)
 
 def main():
     print("Test the DeviceInstance Class.")

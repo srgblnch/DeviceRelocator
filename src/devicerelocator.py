@@ -119,7 +119,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
 
     def buildRelocatorObject(self,serverInstanceName,serverLocations):
         #TODO: dynattrs for this manager
-        return DeviceInstance(serverInstanceName,serverLocations)
+        return DeviceInstance(serverInstanceName,serverLocations,self.get_logger())
 
 #----- PROTECTED REGION END -----#	//	DeviceRelocator.global_variables
 #------------------------------------------------------------------
@@ -338,7 +338,19 @@ class DeviceRelocator (PyTango.Device_4Impl):
         #----- PROTECTED REGION ID(DeviceRelocator.MoveInstance) ENABLED START -----#
         if not len(argin) == 2:
             raise ValueError("Input argument should be [instance,destination]")
-        
+        instanceName = argin[0]
+        destination = argin[1]
+        if not instanceName in self._instances.keys():
+            raise ValueError("Unknown instance %s"%(repr(instanceName)))
+        if not destination in self._locations.keys():
+            raise ValueError("Unknown location %s"%(repr(destination)))
+        try:
+            server = self._instances[instanceName]
+            if not server.currentLocation() == destination:
+                server.move(destination)
+                return True
+        except Exception,e:
+            self.error_stream("In %s.MoveInstance() exception: %s"%(self.get_name(),e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.MoveInstance
         return argout
         
