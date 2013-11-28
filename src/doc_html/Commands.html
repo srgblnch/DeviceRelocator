@@ -1,0 +1,76 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<html>
+<head>
+<title> DeviceRelocator Tango Class Commands </title>
+</head>
+<body text="Black" bgcolor="White" link="Blue" vlink="Purple" alink="Red">
+<br><br><br><br>
+<Table Border=2 Cellpadding=3 CELLSPACING=0>
+	<tr bgcolor="#CCCCFF" class="TableHeadingColor">
+	<td colspan=5> <font size=+1> <center><b> DeviceRelocator Class Commands </b></font></center></td>
+	<tr bgcolor="#CCCCFF" class="TableHeadingColor">
+		<td> <center><b> Name </b></center> </td>
+		<td> <center><b> Input type </b></center> </td>
+		<td> <center><b> Output type </b></center> </td>
+		<td> <center><b> Level </b></center> </td>
+		<td> <center><b> Description </b></center> </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdState.html"> State </a> </td>
+		<td> DEV_VOID </td>
+		<td> DEV_STATE </td>
+		<td> OPERATOR </td>
+		<td> This command gets the device state (stored in its device_state data member) and returns it to the caller. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdStatus.html"> Status </a> </td>
+		<td> DEV_VOID </td>
+		<td> CONST_DEV_STRING </td>
+		<td> OPERATOR </td>
+		<td> This command gets the device status (stored in its device_status data member) and returns it to the caller. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdAddInstance.html"> AddInstance </a> </td>
+		<td> DEV_STRING </td>
+		<td> DEV_BOOLEAN </td>
+		<td> OPERATOR </td>
+		<td> Add an instance to be managed </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdRemoveInstance.html"> RemoveInstance </a> </td>
+		<td> DEV_STRING </td>
+		<td> DEV_BOOLEAN </td>
+		<td> OPERATOR </td>
+		<td> Remove an instence from the managed list. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdAddLocation.html"> AddLocation </a> </td>
+		<td> DEV_STRING </td>
+		<td> DEV_BOOLEAN </td>
+		<td> OPERATOR </td>
+		<td> Add a pair of tag and host to the list of possible locations (separeted by `:`) </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdRemoveLocation.html"> RemoveLocation </a> </td>
+		<td> DEV_STRING </td>
+		<td> DEV_BOOLEAN </td>
+		<td> OPERATOR </td>
+		<td> Given the tag, remove a possible location from the list. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdMoveInstance.html"> MoveInstance </a> </td>
+		<td> DEVVAR_STRINGARRAY </td>
+		<td> DEV_BOOLEAN </td>
+		<td> OPERATOR </td>
+		<td> start the procedure to move an instance to the specified location. It must be in the possible locations list. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdExec.html"> Exec </a> </td>
+		<td> DEV_STRING </td>
+		<td> DEV_STRING </td>
+		<td> EXPERT </td>
+		<td> Hackish expert attribute to look inside the device during execution. If you use it, be very careful and at your own risk. </td>
+	</tr>
+</table>
+</body>
+</html>
