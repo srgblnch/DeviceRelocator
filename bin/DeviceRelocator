@@ -1,0 +1,21 @@
+#!/bin/sh
+
+. alba_blissrc
+
+
+if [[ $# -eq 1 ]] ; then
+    echo "Setting logs to minimum"
+    VERBOSE='-v2'
+else
+    echo "Setting logs to $2"
+    VERBOSE=$2
+fi
+
+DNAME=DeviceRelocator
+
+DIR=$SICILIA/ds/suse111
+if [[ $1 == "-?" ]] ; then
+    $DIR/$DNAME $1
+else
+    screen -dm -S $DNAME-$1 $DIR/$DNAME $1 $VERBOSE
+fi
