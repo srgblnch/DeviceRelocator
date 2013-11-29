@@ -39,7 +39,8 @@ import sys
 import time
 from types import StringType
 import traceback
-from deviceinstance import DeviceInstance
+from deviceinstance import DeviceInstance,AttrExc
+import threading
 #----- PROTECTED REGION END -----#	//	DeviceRelocator.additionnal_import
 
 ##############################################################################
@@ -112,6 +113,8 @@ class DeviceRelocator (PyTango.Device_4Impl):
     #----- done properties manager section
     ######
 
+    ######
+    #----- Relocator Object builders and destroyers
     def buildLocationsDict(self):
         self._locations = {}
         for each in self.Locations:
@@ -122,9 +125,16 @@ class DeviceRelocator (PyTango.Device_4Impl):
         self.fireEventsList([['Locations',attrValue]])
 
     def buildRelocatorObject(self,serverInstanceName):
+        server = DeviceInstance(serverInstanceName,self._locations,self.get_logger(),self)
         #TODO: dynattrs for this manager
-        server = DeviceInstance(serverInstanceName,self._locations,self.get_logger())
+        server.buildDynAttrs()
         self._instances[serverInstanceName] = server
+        self._instanceMonitors[serverInstanceName] = {}
+        self._instanceMonitors[serverInstanceName]['Thread'] = threading.Thread(target=self.__instanceMonitor,
+                                                                                args=([serverInstanceName]))
+        self._instanceMonitors[serverInstanceName]['Event'] = threading.Event()
+        self._instanceMonitors[serverInstanceName]['Event'].clear()
+        self._instanceMonitors[serverInstanceName]['Thread'].start()
         attrValue = self._instances.keys()
         attrValue.sort()
         self.fireEventsList([['Instances',attrValue]])
@@ -135,6 +145,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
         try:
             server = self._instances.pop(serverInstanceName)
             #TODO: delete dynattrs
+            self._instanceMonitors[serverInstanceName]['Event'].set()
             attrValue = self._instances.keys()
             attrValue.sort()
             self.fireEventsList([['Instances',attrValue]])
@@ -144,6 +155,37 @@ class DeviceRelocator (PyTango.Device_4Impl):
                               %(self.get_name(),serverInstanceName,e))
             argout = False
         return argout
+    #----- done Relocator Object builders and destroyers
+    ######
+    
+    ######
+    #----- dynattr section
+    @AttrExc
+    def read_attr(self, attr):
+        attrName = attr.get_name()
+        instanceName,action = attrName.rsplit('_',1)
+        instanceName = instanceName.replace('.','/')
+        self.debug_stream("In %s.read_attr() instance %s action %s"
+                          %(self.get_name(),instanceName,action))
+        if action == 'state':
+            value = self._instances[instanceName].getState()
+        else:
+            raise AttributeError("Unrecognized action %s"%(repr(action)))
+        attr.set_value(value)
+        
+    #This method is used to update the attribute on an instance because the 
+    #background movement can finish before a complete start up of the instance
+    def __instanceMonitor(self,instanceName):
+        oldValue = self._instances[instanceName].getState()
+        while not self._instanceMonitors[instanceName]['Event'].is_set():
+            newValue = self._instances[instanceName].getState()
+            if oldValue != newValue:
+                self.fireEventsList([["%s_state"%(instanceName.replace('/','.')),newValue]])
+                oldValue = newValue
+            time.sleep(1)
+        #FIXME: this method is a bit hackish...
+    #----- done dynattr section
+    ######
 
 #----- PROTECTED REGION END -----#	//	DeviceRelocator.global_variables
 #------------------------------------------------------------------
@@ -191,6 +233,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
                           %(self.get_name(),self.Instances,self.Locations))
         self.buildLocationsDict()
         self._instances = {}
+        self._instanceMonitors = {}
         for each in self.Instances:
             server = self.buildRelocatorObject(each)
             self.debug_stream("In %s.init_device() instances %s located in %s"
