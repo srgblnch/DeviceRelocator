@@ -36,6 +36,7 @@ import PyTango
 import sys
 # Add additional import
 #----- PROTECTED REGION ID(DeviceRelocator.additionnal_import) ENABLED START -----#
+import time
 from types import StringType
 import traceback
 from deviceinstance import DeviceInstance
@@ -116,10 +117,33 @@ class DeviceRelocator (PyTango.Device_4Impl):
         for each in self.Locations:
             tag,host = each.split(':')
             self._locations[tag] = host
+        attrValue = self._locations.keys()
+        attrValue.sort()
+        self.fireEventsList([['Locations',attrValue]])
 
-    def buildRelocatorObject(self,serverInstanceName,serverLocations):
+    def buildRelocatorObject(self,serverInstanceName):
         #TODO: dynattrs for this manager
-        return DeviceInstance(serverInstanceName,serverLocations,self.get_logger())
+        server = DeviceInstance(serverInstanceName,self._locations,self.get_logger())
+        self._instances[serverInstanceName] = server
+        attrValue = self._instances.keys()
+        attrValue.sort()
+        self.fireEventsList([['Instances',attrValue]])
+        return server
+    
+    def destroyRelocatorObject(self,serverInstanceName):
+        argout = False
+        try:
+            server = self._instances.pop(serverInstanceName)
+            #TODO: delete dynattrs
+            attrValue = self._instances.keys()
+            attrValue.sort()
+            self.fireEventsList([['Instances',attrValue]])
+            argout = True
+        except Exception,e:
+            self.debug_stream("In %s.destroyRelocatorObject(%s) exception: %s"
+                              %(self.get_name(),serverInstanceName,e))
+            argout = False
+        return argout
 
 #----- PROTECTED REGION END -----#	//	DeviceRelocator.global_variables
 #------------------------------------------------------------------
@@ -145,9 +169,13 @@ class DeviceRelocator (PyTango.Device_4Impl):
     def init_device(self):
         self.debug_stream("In " + self.get_name() + ".init_device()")
         self.get_device_properties(self.get_device_class())
+        self.attr_Instances_read = ['']
+        self.attr_Locations_read = ['']
         #----- PROTECTED REGION ID(DeviceRelocator.init_device) ENABLED START -----#
         self.set_change_event('State',True,False)
         self.set_change_event('Status',True,False)
+        self.set_change_event('Instances',True,False)
+        self.set_change_event('Locations',True,False)
         self._important_logs = []
         self.change_state(PyTango.DevState.INIT)
         #tools for the Exec() cmd
@@ -164,10 +192,9 @@ class DeviceRelocator (PyTango.Device_4Impl):
         self.buildLocationsDict()
         self._instances = {}
         for each in self.Instances:
-            server = self.buildRelocatorObject(each,self._locations)
+            server = self.buildRelocatorObject(each)
             self.debug_stream("In %s.init_device() instances %s located in %s"
                               %(self.get_name(),server.getName(),server.currentLocation()))
-            self._instances[each] = server
         
         self.change_state(PyTango.DevState.ON)
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.init_device
@@ -187,6 +214,28 @@ class DeviceRelocator (PyTango.Device_4Impl):
 #
 #==================================================================
 
+#------------------------------------------------------------------
+#    Read Instances attribute
+#------------------------------------------------------------------
+    def read_Instances(self, attr):
+        self.debug_stream("In " + self.get_name() + ".read_Instances()")
+        #----- PROTECTED REGION ID(DeviceRelocator.Instances_read) ENABLED START -----#
+        self.attr_Instances_read = self._instances.keys()
+        self.attr_Instances_read.sort()
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.Instances_read
+        attr.set_value(self.attr_Instances_read)
+        
+#------------------------------------------------------------------
+#    Read Locations attribute
+#------------------------------------------------------------------
+    def read_Locations(self, attr):
+        self.debug_stream("In " + self.get_name() + ".read_Locations()")
+        #----- PROTECTED REGION ID(DeviceRelocator.Locations_read) ENABLED START -----#
+        self.attr_Locations_read = self._locations.keys()
+        self.attr_Locations_read.sort()
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.Locations_read
+        attr.set_value(self.attr_Locations_read)
+        
 
 
 
@@ -222,9 +271,8 @@ class DeviceRelocator (PyTango.Device_4Impl):
         if argin in self.Instances:
             raise ValueError("Instance %s is already in the list"%(argin))
         try:
-            server = self.buildRelocatorObject(argin,self._locations)
+            server = self.buildRelocatorObject(argin)
             self.Instances = self.__appendPropertyElement("Instances", argin)
-            self._instances[argin] = server
             return True
         except Exception,e:
             self.error_stream("In %s.AddInstance() exception: %s"%(self.get_name(),e))
@@ -247,9 +295,9 @@ class DeviceRelocator (PyTango.Device_4Impl):
         if not argin in self.Instances:
             raise ValueError("Instance %s is not in the list"%(argin))
         try:
-            server = self._instances.pop(argin)
-            self.Instances = self.__popPropertyElement("Instances",argin)
-            return True
+            if self.destroyRelocatorObject(argin):
+                self.Instances = self.__popPropertyElement("Instances",argin)
+                return True
         except Exception,e:
             self.error_stream("In %s.RemoveInstance() exception: %s"%(self.get_name(),e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.RemoveInstance
@@ -301,6 +349,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
             else:
                 tag = argin
                 hostname = self._locations[tag]
+                argin = "%s:%s"%(tag,hostname)
         except Exception,e:
             self.error_stream("In %s.RemoveLocation() not understood the "\
                               "location %s"%(self.get_name(),argin))
@@ -446,6 +495,20 @@ class DeviceRelocatorClass(PyTango.DeviceClass):
 
     #    Attribute definitions
     attr_list = {
+        'Instances':
+            [[PyTango.DevString,
+            PyTango.SPECTRUM,
+            PyTango.READ, 100],
+            {
+                'description': "List of the managed instances configured in the device.",
+            } ],
+        'Locations':
+            [[PyTango.DevString,
+            PyTango.SPECTRUM,
+            PyTango.READ, 100],
+            {
+                'description': "List of available locations for the managed instances.",
+            } ],
         }
 
 
