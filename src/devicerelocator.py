@@ -104,8 +104,9 @@ class DeviceRelocator (PyTango.Device_4Impl):
         propertiesDict = db.get_device_property(self.get_name(),propertyName)
         propertyList = list(propertiesDict[propertyName])
         index = propertyList.index(element)
-        self.debug_stream("In %s.__popPropertyElement() removing %s (index %d)"
-                          %(self.get_name(),propertyName,index))
+        self.debug_stream("In %s.__popPropertyElement() removing in "\
+                          "property %s: %s (index %d)"
+                          %(self.get_name(),repr(propertyName),repr(element),index))
         propertyList.pop(index)
         propertiesDict[propertyName] = propertyList
         db.put_device_property(self.get_name(),propertiesDict)
@@ -116,16 +117,35 @@ class DeviceRelocator (PyTango.Device_4Impl):
     ######
     #----- Relocator Object builders and destroyers
     def buildLocationsDict(self):
+        self.debug_stream("In %s.buildLocationsDict()"%(self.get_name()))
         self._locations = {}
+        argout = True
         for each in self.Locations:
-            tag,host = each.split(':')
-            self._locations[tag] = host
+            try:
+                tag,host = each.split(':')
+                if host in self._availableLocations:
+                    self._locations[tag] = host
+                else:
+                    self.error_stream("In %s.buildLocationsDict() excluding the "\
+                                      "host %s because is not in the list of the "\
+                                      "available"%(self.get_name(),host))
+                    argout = False
+            except Exception,e:
+                self.error_stream("In %s.buildLocationsDict() exception for "\
+                                  "%s: %s"%(self.get_name(),repr(each),e))
+                argout = False
         attrValue = self._locations.keys()
         attrValue.sort()
         self.fireEventsList([['Locations',attrValue]])
+        return argout
 
     def buildRelocatorObject(self,serverInstanceName):
-        server = DeviceInstance(serverInstanceName,self._locations,self.get_logger(),self)
+        try:
+            server = DeviceInstance(serverInstanceName,self._locations,self.get_logger(),self)
+        except Exception,e:
+            self.error_stream("In %s.buildRelocatorObject(%s) Exception: %s"
+                              %(self.get_name(),serverInstanceName,e))
+            return None
         #TODO: dynattrs for this manager
         server.buildDynAttrs()
         self._instances[serverInstanceName] = server
@@ -182,7 +202,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
             if oldValue != newValue:
                 self.fireEventsList([["%s_state"%(instanceName.replace('/','.')),newValue]])
                 oldValue = newValue
-            time.sleep(1)
+            time.sleep(self.attr_InstanceMonitorPeriod_read)
         #FIXME: this method is a bit hackish...
     #----- done dynattr section
     ######
@@ -211,9 +231,11 @@ class DeviceRelocator (PyTango.Device_4Impl):
     def init_device(self):
         self.debug_stream("In " + self.get_name() + ".init_device()")
         self.get_device_properties(self.get_device_class())
+        self.attr_InstanceMonitorPeriod_read = 0.0
         self.attr_Instances_read = ['']
         self.attr_Locations_read = ['']
         #----- PROTECTED REGION ID(DeviceRelocator.init_device) ENABLED START -----#
+        self.attr_InstanceMonitorPeriod_read = 1.0
         self.set_change_event('State',True,False)
         self.set_change_event('Status',True,False)
         self.set_change_event('Instances',True,False)
@@ -231,6 +253,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
         #Now really starts the device initialisation
         self.debug_stream("In %s.init_device() instances %s and locations %s"
                           %(self.get_name(),self.Instances,self.Locations))
+        self.RefreshAvailableLocations()
         self.buildLocationsDict()
         self._instances = {}
         self._instanceMonitors = {}
@@ -257,6 +280,27 @@ class DeviceRelocator (PyTango.Device_4Impl):
 #
 #==================================================================
 
+#------------------------------------------------------------------
+#    Read InstanceMonitorPeriod attribute
+#------------------------------------------------------------------
+    def read_InstanceMonitorPeriod(self, attr):
+        self.debug_stream("In " + self.get_name() + ".read_InstanceMonitorPeriod()")
+        #----- PROTECTED REGION ID(DeviceRelocator.InstanceMonitorPeriod_read) ENABLED START -----#
+        
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.InstanceMonitorPeriod_read
+        attr.set_value(self.attr_InstanceMonitorPeriod_read)
+        
+#------------------------------------------------------------------
+#    Write InstanceMonitorPeriod attribute
+#------------------------------------------------------------------
+    def write_InstanceMonitorPeriod(self, attr):
+        self.debug_stream("In " + self.get_name() + ".write_InstanceMonitorPeriod()")
+        data=attr.get_write_value()
+        self.debug_stream("Attribute value = " + str(data))
+        #----- PROTECTED REGION ID(DeviceRelocator.InstanceMonitorPeriod_write) ENABLED START -----#
+        self.attr_InstanceMonitorPeriod_read = float(data)
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.InstanceMonitorPeriod_write
+        
 #------------------------------------------------------------------
 #    Read Instances attribute
 #------------------------------------------------------------------
@@ -315,8 +359,9 @@ class DeviceRelocator (PyTango.Device_4Impl):
             raise ValueError("Instance %s is already in the list"%(argin))
         try:
             server = self.buildRelocatorObject(argin)
-            self.Instances = self.__appendPropertyElement("Instances", argin)
-            return True
+            if server:
+                self.Instances = self.__appendPropertyElement("Instances", argin)
+                return True
         except Exception,e:
             self.error_stream("In %s.AddInstance() exception: %s"%(self.get_name(),e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.AddInstance
@@ -364,10 +409,13 @@ class DeviceRelocator (PyTango.Device_4Impl):
         #TODO: check if the host exist
         try:
             self.Locations = self.__appendPropertyElement("Locations", argin)
-            self.buildLocationsDict()
-            for server in self._instances.values():
-                server.setLocations(self._locations)
-            return True
+            if self.buildLocationsDict():
+                for server in self._instances.values():
+                    server.setLocations(self._locations)
+                return True
+            else:
+                self.Locations = self.__popPropertyElement("Locations",argin)
+                return False
         except Exception,e:
             self.error_stream("In %s.AddLocation() exception: %s"%(self.get_name(),e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.AddLocation
@@ -484,6 +532,31 @@ class DeviceRelocator (PyTango.Device_4Impl):
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.Exec
         return argout
         
+#------------------------------------------------------------------
+#    RefreshAvailableLocations command:
+#------------------------------------------------------------------
+    def RefreshAvailableLocations(self):
+        """ Chech the database to know the available locations for the servers.
+        
+        :param : 
+        :type: PyTango.DevVoid
+        :return: 
+        :rtype: PyTango.DevVoid """
+        self.debug_stream("In " + self.get_name() +  ".RefreshAvailableLocations()")
+        #----- PROTECTED REGION ID(DeviceRelocator.RefreshAvailableLocations) ENABLED START -----#
+        db = PyTango.Database()
+        host_list = db.get_host_list()
+        rawLocations = host_list.value_string
+        #avoid the domain, because astor later avoids it.
+        self._availableLocations = []
+        for element in rawLocations:
+            hostWithoutDomain = element.split('.')[0]
+            if not hostWithoutDomain in rawLocations:
+                self._availableLocations.append(hostWithoutDomain)
+        self.debug_stream("In %s.RefreshAvailableLocations() found %s locations"
+                          %(self.get_name(),repr(self._availableLocations)))
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.RefreshAvailableLocations
+        
 
 #==================================================================
 #
@@ -533,11 +606,27 @@ class DeviceRelocatorClass(PyTango.DeviceClass):
             {
                 'Display level': PyTango.DispLevel.EXPERT,
             } ],
+        'RefreshAvailableLocations':
+            [[PyTango.DevVoid, "none"],
+            [PyTango.DevVoid, "none"],
+            {
+                'Display level': PyTango.DispLevel.EXPERT,
+            } ],
         }
 
 
     #    Attribute definitions
     attr_list = {
+        'InstanceMonitorPeriod':
+            [[PyTango.DevDouble,
+            PyTango.SCALAR,
+            PyTango.READ_WRITE],
+            {
+                'label': "Instance Monitor Period",
+                'description': "Defines the number of seconds were the instance state is checked to emit state change if necessary.",
+                'Display level': PyTango.DispLevel.EXPERT,
+                'Memorized':"true"
+            } ],
         'Instances':
             [[PyTango.DevString,
             PyTango.SPECTRUM,

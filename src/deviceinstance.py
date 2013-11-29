@@ -44,13 +44,14 @@ class DeviceInstance:
         self._locations = {}
         self._reverseLocations = {}
         self.setLocations(locations)
-        self._astor.load_by_name(instance)
         self._movingThread = None
         self._runLevel = None
         self._logger = logger
         self._device = device
         self._waitTime = waitTime
         self._retries = 5
+        if self._astor.load_by_name(instance) != 1:
+            raise NameError("Instance name does not resolve a unique instance")
 
     def info(self,msg):
         if self._logger:
