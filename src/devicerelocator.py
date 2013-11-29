@@ -189,6 +189,8 @@ class DeviceRelocator (PyTango.Device_4Impl):
                           %(self.get_name(),instanceName,action))
         if action == 'state':
             value = self._instances[instanceName].getState()
+        elif action == 'hostname':
+            value = self._instances[instanceName].currentLocation()
         else:
             raise AttributeError("Unrecognized action %s"%(repr(action)))
         attr.set_value(value)
@@ -200,7 +202,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
         while not self._instanceMonitors[instanceName]['Event'].is_set():
             newValue = self._instances[instanceName].getState()
             if oldValue != newValue:
-                self.fireEventsList([["%s_state"%(instanceName.replace('/','.')),newValue]])
+                self._instances[instanceName].stateChance()
                 oldValue = newValue
             time.sleep(self.attr_InstanceMonitorPeriod_read)
         #FIXME: this method is a bit hackish...
@@ -557,6 +559,28 @@ class DeviceRelocator (PyTango.Device_4Impl):
                           %(self.get_name(),repr(self._availableLocations)))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.RefreshAvailableLocations
         
+#------------------------------------------------------------------
+#    MoveAllInstances command:
+#------------------------------------------------------------------
+    def MoveAllInstances(self, argin):
+        """ start the procedure to move all the instances managed to the specified location. It must be in the possible locations list.
+        
+        :param argin: 
+        :type: PyTango.DevString
+        :return: 
+        :rtype: PyTango.DevBoolean """
+        self.debug_stream("In " + self.get_name() +  ".MoveAllInstances()")
+        argout = False
+        #----- PROTECTED REGION ID(DeviceRelocator.MoveAllInstances) ENABLED START -----#
+        try:
+            for each in self.attr_Instances_read:
+                argout = self.MoveInstance([each,argin])
+        except Exception,e:
+            self.error_stream("In %s.MoveAllInstances(%s) exception: %s"
+                              %(self.get_name(),argin,e))
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.MoveAllInstances
+        return argout
+        
 
 #==================================================================
 #
@@ -612,6 +636,9 @@ class DeviceRelocatorClass(PyTango.DeviceClass):
             {
                 'Display level': PyTango.DispLevel.EXPERT,
             } ],
+        'MoveAllInstances':
+            [[PyTango.DevString, "none"],
+            [PyTango.DevBoolean, "none"]],
         }
 
 

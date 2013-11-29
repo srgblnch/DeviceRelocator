@@ -108,7 +108,17 @@ class DeviceInstance:
         return state
     def stateChance(self):
         if self._device:
-            self._device.fireEventsList([["%s_state"%(self.getName()),self.getState()]])
+            state = ["%s_state"%(self.getName()),self.getState()]
+            try:
+                if state[1] == PyTango.DevState.MOVING:
+                    host = ["%s_hostname"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_CHANGING]
+                elif state[1] == PyTango.DevState.DISABLE:
+                    host = ["%s_hostname"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_INVALID]
+                else:
+                    host = ["%s_hostname"%(self.getName()),self.currentLocation()]
+            except:
+                host = ["%s_hostname"%(self.getName()),"",PyTango.AttrQuality.ATTR_INVALID]
+            self._device.fireEventsList([state,host])
 
     def currentLocation(self):
         '''Reading the host where the instance runs, translate it to the tag
@@ -172,12 +182,17 @@ class DeviceInstance:
     #---- This methods are only used when the object lives inside a DeviceServer
     def buildDynAttrs(self):
         if self._device:
-            attrName = "%s_state"%(self._instance.replace('/','.'))
-            attrType = PyTango.CmdArgType.DevState
-            attr = PyTango.Attr(attrName,attrType,PyTango.READ)
-            readmethod = AttrExc(getattr(self._device,'read_attr'))
-            self._device.add_attribute(attr, r_meth=readmethod)
-            self._device.set_change_event(attrName,True,False)
+            #proxy the state of the instance monitored
+            dynAttrs = [["%s_state"%(self._instance.replace('/','.')),
+                         PyTango.CmdArgType.DevState],
+                        ["%s_hostname"%(self._instance.replace('/','.')),
+                         PyTango.CmdArgType.DevString]
+                       ]
+            for attrDescription in dynAttrs:
+                attr = PyTango.Attr(attrDescription[0],attrDescription[1],PyTango.READ)
+                readmethod = AttrExc(getattr(self._device,'read_attr'))
+                self._device.add_attribute(attr, r_meth=readmethod)
+                self._device.set_change_event(attrDescription[0],True,False)
 
     def destroyDynAttrs(self,attr):
         pass#TODO

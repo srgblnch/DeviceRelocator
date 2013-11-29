@@ -57,6 +57,7 @@
 				<li> <a href="FullDocument.html#cmdMoveInstance"> MoveInstance </a>
 				<li> <a href="FullDocument.html#cmdExec"> Exec </a>
 				<li> <a href="FullDocument.html#cmdRefreshAvailableLocations"> RefreshAvailableLocations </a>
+				<li> <a href="FullDocument.html#cmdMoveAllInstances"> MoveAllInstances </a>
 			</ul>
 			<li> <a href="FullDocument.html#attributes">   Attributes   </a>
 			<ul>
@@ -230,6 +231,13 @@
 		<td> DEV_VOID </td>
 		<td> EXPERT </td>
 		<td> Chech the database to know the available locations for the servers. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdMoveAllInstances.html"> MoveAllInstances </a> </td>
+		<td> DEV_STRING </td>
+		<td> DEV_BOOLEAN </td>
+		<td> OPERATOR </td>
+		<td> start the procedure to move all the instances managed to the specified location. It must be in the possible locations list. </td>
 	</tr>
 </table>
 <br><br><hr>
@@ -649,6 +657,55 @@
 	<tr>
 		<td> DisplayLevel </td>
 		<td> EXPERT </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Inherited </td>
+		<td> false </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Abstract </td>
+		<td> false </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Polling Period </td>
+		<td> Not polled </td>
+		<td> .. </td>
+	</tr>
+<Tr BGCOLOR="#CCCCFF"><Td><Hr></Td><Td><Hr></Td><Td><Hr></Td></Tr>
+	<tr>
+		<td> Command allowed for </td>
+		<td> All states </td>
+		<td> .. </td>
+	</tr>
+</table>
+<br><br><hr>
+<a name="cmdMoveAllInstances"> </a>
+<br><br><br>
+<font size="+1"><u><b> Command MoveAllInstances : </b></u></font>
+<ul>
+	start the procedure to move all the instances managed to the specified location. It must be in the possible locations list.
+</ul>
+<br><br><br>
+<Table Border=2 Cellpadding=3 CELLSPACING=0>
+	<tr bgcolor="#CCCCFF" class="TableHeadingColor">
+	<td colspan=0> <font size=+1> <center><b> MoveAllInstances Definition </b></font></center></td>
+	</tr>
+	<tr>
+		<td> Input Argument </td>
+		<td> Tango::DEV_STRING </td>
+		<td>  </td>
+	</tr>
+	<tr>
+		<td> Output Argument </td>
+		<td> Tango::DEV_BOOLEAN </td>
+		<td>  </td>
+	</tr>
+	<tr>
+		<td> DisplayLevel </td>
+		<td> OPERATOR </td>
 		<td> .. </td>
 	</tr>
 	<tr>
