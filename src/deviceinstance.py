@@ -16,7 +16,7 @@ Locations = {'local':'ctpcdevel01',#'cli0303'
              'remote':'ctpcdevel02',#'cli0301'
             }
 RunLevel = 1
-waitTime = 0.1
+waitTime = 3.0#an smaller value can cause problems in the moving procedure
 
 #LinacDevices = {}
 #for each in Instances:
@@ -129,10 +129,17 @@ class DeviceInstance:
             return self._reverseLocations[hostname]
         except:
             raise Exception("Unmanaged location %s"%(hostname))
-    def currentRunLevel(self):
+    def getRunLevel(self):
         return self._astor.get_server_level(self._instance)[1]
-    def destinationRunLevel(self,runLevel):
-        self._runLevel = int(runLevel)
+    def getRunLevelDestination(self):
+        return self._runLevel
+#     def setRunLevel(self,runLevel):
+#         hostname,currentLevel = self._astor.get_server_level(self._instance)
+#         if currentLevel != runLevel:
+#             self._astor.set_server_level(self._instance,hostname,runLevel)
+    def setRunLevelDestination(self,runLevel):
+        if int(runLevel) > 0:
+            self._runLevel = int(runLevel)
     def resetRunLevel(self):
         self._runLevel = None
 
@@ -143,18 +150,23 @@ class DeviceInstance:
         #self._movingThread.setDaemon(True)
         self._movingThread.start()
 
+    def restart(self):
+        self.move(self.currentLocation())
+
     def _backgroundMovement(self,tag):
         self.info("In %s.BackgroundMovement() from %s to %s"\
                    %(self._instance,self.currentLocation(),tag))
         try:
-            runLevel = self._runLevel or self.currentRunLevel()
-            hostname = self._locations[tag]
-            self._astor.set_server_level(self._instance,hostname,runLevel)
+            if self.currentLocation() != tag:
+                runLevel = self._runLevel or self.getRunLevel()
+                hostname = self._locations[tag]
+                self._astor.set_server_level(self._instance,hostname,runLevel)
             time.sleep(self._waitTime)
             if self.isAlive():
                 self._astor.stop_servers([self._instance])
                 self.stateChance()
                 retries = self._retries
+                time.sleep(self._waitTime)
                 while self.isAlive() and retries != 0:
                     self.warn("In %s.BackgroundMovement() waiting stop"%(self._instance))
                     retries -= 1
@@ -162,9 +174,11 @@ class DeviceInstance:
                 if retries == 0:
                     self.error("In %s.BackgroundMovement() stop cannot waiting anymore"%(self._instance))
                 self.stateChance()
+            time.sleep(self._waitTime)
             if not self.isAlive():
                 self._astor.start_servers([self._instance])
                 retries = self._retries
+                time.sleep(self._waitTime)
                 while not self.isAlive() and retries != 0:
                     self.warn("In %s.BackgroundMovement() waiting start"%(self._instance))
                     retries -= 1
@@ -172,6 +186,8 @@ class DeviceInstance:
                 if retries == 0:
                     self.error("In %s.BackgroundMovement() start cannot waiting anymore"%(self._instance))
                 self.stateChance()
+            time.sleep(self._waitTime)
+            self.stateChance()
         except Exception,e:
             self.error("In %s.BackgroundMovement() exception: %s"%(self._instance,e))
         time.sleep(self._waitTime)
@@ -184,17 +200,39 @@ class DeviceInstance:
     def buildDynAttrs(self):
         if self._device:
             dynAttrDesc = [#proxy the state of the instance monitored
-                           {'AttrName':"%s_state"%(self._instance.replace('/','.')),
-                            'AttrType':PyTango.CmdArgType.DevState},
+                           {'AttrName':"state",
+                            'AttrType':PyTango.CmdArgType.DevState,
+                            'AttrRW':PyTango.READ},
                            #from the location list, show in which it is running
-                           {'AttrName':"%s_location"%(self._instance.replace('/','.')),
-                            'AttrType':PyTango.CmdArgType.DevString}]
+                           {'AttrName':"location",
+                            'AttrType':PyTango.CmdArgType.DevString,
+                            'AttrRW':PyTango.READ},
+                           {'AttrName':"waittime",
+                            'AttrType':PyTango.CmdArgType.DevFloat,
+                            'AttrRW':PyTango.READ_WRITE},
+                            {'AttrName':"runlevel",
+                             'AttrType':PyTango.CmdArgType.DevUChar,
+                             'AttrRW':PyTango.READ},#_WRITE},
+#                            {'AttrName':None,
+#                             'AttrType':None,
+#                             'AttrRW':None},
+                          ]
+            attrPrefix = self.getName()
             for attrDesc in dynAttrDesc:
-                attr = PyTango.Attr(attrDesc['AttrName'],attrDesc['AttrType'],PyTango.READ)
+                attrName = "%s_%s"%(attrPrefix,attrDesc['AttrName'])
+                attrType = attrDesc['AttrType']
+                attrRW = attrDesc['AttrRW']
+                self.debug("In %s.buildDynAttrs() adding %s"%(self._instance,attrName))
+                attr = PyTango.Attr(attrName,attrType,attrRW)
                 readmethod = AttrExc(getattr(self._device,'read_attr'))
-                self._dynAttrs.append(attrDesc['AttrName'])
-                self._device.add_attribute(attr, r_meth=readmethod)
-                self._device.set_change_event(attrDesc['AttrName'],True,False)
+                if attrRW is PyTango.READ_WRITE:
+                    writemethod = AttrExc(getattr(self._device,'write_attr'))
+                self._dynAttrs.append(attrName)
+                if attrRW is PyTango.READ_WRITE:
+                    self._device.add_attribute(attr, r_meth=readmethod,w_meth=writemethod)
+                else:
+                    self._device.add_attribute(attr, r_meth=readmethod)
+                self._device.set_change_event(attrName,True,False)
 
     def destroyDynAttrs(self):
         if self._device:

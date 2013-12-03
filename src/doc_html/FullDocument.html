@@ -58,6 +58,8 @@
 				<li> <a href="FullDocument.html#cmdExec"> Exec </a>
 				<li> <a href="FullDocument.html#cmdRefreshAvailableLocations"> RefreshAvailableLocations </a>
 				<li> <a href="FullDocument.html#cmdMoveAllInstances"> MoveAllInstances </a>
+				<li> <a href="FullDocument.html#cmdRestartInstance"> RestartInstance </a>
+				<li> <a href="FullDocument.html#cmdRestartAllInstance"> RestartAllInstance </a>
 			</ul>
 			<li> <a href="FullDocument.html#attributes">   Attributes   </a>
 			<ul>
@@ -238,6 +240,20 @@
 		<td> DEV_BOOLEAN </td>
 		<td> OPERATOR </td>
 		<td> start the procedure to move all the instances managed to the specified location. It must be in the possible locations list. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdRestartInstance.html"> RestartInstance </a> </td>
+		<td> DEV_STRING </td>
+		<td> DEV_BOOLEAN </td>
+		<td> EXPERT </td>
+		<td> Given one of the instances monitored, use its astor object to stop and later start it. </td>
+	</tr>
+	<tr>
+		<td> <a href="CmdRestartAllInstance.html"> RestartAllInstance </a> </td>
+		<td> DEV_VOID </td>
+		<td> DEV_BOOLEAN </td>
+		<td> EXPERT </td>
+		<td> For each of the instances monitored, use its astor object to stop and later start it. </td>
 	</tr>
 </table>
 <br><br><hr>
@@ -706,6 +722,104 @@
 	<tr>
 		<td> DisplayLevel </td>
 		<td> OPERATOR </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Inherited </td>
+		<td> false </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Abstract </td>
+		<td> false </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Polling Period </td>
+		<td> Not polled </td>
+		<td> .. </td>
+	</tr>
+<Tr BGCOLOR="#CCCCFF"><Td><Hr></Td><Td><Hr></Td><Td><Hr></Td></Tr>
+	<tr>
+		<td> Command allowed for </td>
+		<td> All states </td>
+		<td> .. </td>
+	</tr>
+</table>
+<br><br><hr>
+<a name="cmdRestartInstance"> </a>
+<br><br><br>
+<font size="+1"><u><b> Command RestartInstance : </b></u></font>
+<ul>
+	Given one of the instances monitored, use its astor object to stop and later start it.
+</ul>
+<br><br><br>
+<Table Border=2 Cellpadding=3 CELLSPACING=0>
+	<tr bgcolor="#CCCCFF" class="TableHeadingColor">
+	<td colspan=0> <font size=+1> <center><b> RestartInstance Definition </b></font></center></td>
+	</tr>
+	<tr>
+		<td> Input Argument </td>
+		<td> Tango::DEV_STRING </td>
+		<td>  </td>
+	</tr>
+	<tr>
+		<td> Output Argument </td>
+		<td> Tango::DEV_BOOLEAN </td>
+		<td>  </td>
+	</tr>
+	<tr>
+		<td> DisplayLevel </td>
+		<td> EXPERT </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Inherited </td>
+		<td> false </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Abstract </td>
+		<td> false </td>
+		<td> .. </td>
+	</tr>
+	<tr>
+		<td> Polling Period </td>
+		<td> Not polled </td>
+		<td> .. </td>
+	</tr>
+<Tr BGCOLOR="#CCCCFF"><Td><Hr></Td><Td><Hr></Td><Td><Hr></Td></Tr>
+	<tr>
+		<td> Command allowed for </td>
+		<td> All states </td>
+		<td> .. </td>
+	</tr>
+</table>
+<br><br><hr>
+<a name="cmdRestartAllInstance"> </a>
+<br><br><br>
+<font size="+1"><u><b> Command RestartAllInstance : </b></u></font>
+<ul>
+	For each of the instances monitored, use its astor object to stop and later start it.
+</ul>
+<br><br><br>
+<Table Border=2 Cellpadding=3 CELLSPACING=0>
+	<tr bgcolor="#CCCCFF" class="TableHeadingColor">
+	<td colspan=0> <font size=+1> <center><b> RestartAllInstance Definition </b></font></center></td>
+	</tr>
+	<tr>
+		<td> Input Argument </td>
+		<td> Tango::DEV_VOID </td>
+		<td>  </td>
+	</tr>
+	<tr>
+		<td> Output Argument </td>
+		<td> Tango::DEV_BOOLEAN </td>
+		<td>  </td>
+	</tr>
+	<tr>
+		<td> DisplayLevel </td>
+		<td> EXPERT </td>
 		<td> .. </td>
 	</tr>
 	<tr>

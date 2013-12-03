@@ -60,26 +60,26 @@ class DeviceRelocator (PyTango.Device_4Impl):
         timestamp = time.time()
         for attrEvent in eventsAttrList:
             try:
-                #self.debug_stream("In %s.fireEventsList() attribute: %s"%(self.get_name(),attrEvent[0]))
+                #self.debug_stream("In fireEventsList() attribute: %s"%(attrEvent[0]))
                 if len(attrEvent) == 3:#specifies quality
                     self.push_change_event(attrEvent[0],attrEvent[1],timestamp,attrEvent[2])
                 else:
                     self.push_change_event(attrEvent[0],attrEvent[1],timestamp,PyTango.AttrQuality.ATTR_VALID)
             except Exception,e:
-                self.error_stream("In %s.fireEventsList() Exception with attribute %s: %s"%(self.get_name(),attrEvent[0],e))
+                self.error_stream("In fireEventsList() Exception with attribute %s: %s"%(attrEvent[0],e))
                 traceback.print_exc()
     #@todo: clean the important logs when they loose importance.
     def change_state(self,newstate):
-        self.debug_stream("In %s.change_state(%s)"%(self.get_name(),str(newstate)))
+        self.debug_stream("In change_state(%s)"%(str(newstate)))
         if newstate != self.get_state():
             self.set_state(newstate)
             self.push_change_event('State',newstate)
     def cleanAllImportantLogs(self):
-        self.debug_stream("In %s.cleanAllImportantLogs()"%self.get_name())
+        self.debug_stream("In cleanAllImportantLogs()")
         self._important_logs = []
         self.addStatusMsg("")
     def addStatusMsg(self,newStatusLine,important = False):
-        self.debug_stream("In %s.addStatusMsg()"%self.get_name())
+        self.debug_stream("In addStatusMsg()")
         msg = "The device is in %s state.\n"%(self.get_state())
         for ilog in self._important_logs:
             msg = "%s%s\n"%(msg,ilog)
@@ -104,9 +104,9 @@ class DeviceRelocator (PyTango.Device_4Impl):
         propertiesDict = db.get_device_property(self.get_name(),propertyName)
         propertyList = list(propertiesDict[propertyName])
         index = propertyList.index(element)
-        self.debug_stream("In %s.__popPropertyElement() removing in "\
+        self.debug_stream("In popPropertyElement() removing in "\
                           "property %s: %s (index %d)"
-                          %(self.get_name(),repr(propertyName),repr(element),index))
+                          %(repr(propertyName),repr(element),index))
         propertyList.pop(index)
         propertiesDict[propertyName] = propertyList
         db.put_device_property(self.get_name(),propertiesDict)
@@ -117,7 +117,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
     ######
     #----- Relocator Object builders and destroyers
     def buildLocationsDict(self):
-        self.debug_stream("In %s.buildLocationsDict()"%(self.get_name()))
+        self.debug_stream("In buildLocationsDict()")
         self._locations = {}
         argout = True
         for each in self.Locations:
@@ -126,13 +126,13 @@ class DeviceRelocator (PyTango.Device_4Impl):
                 if host in self._availableLocations:
                     self._locations[tag] = host
                 else:
-                    self.error_stream("In %s.buildLocationsDict() excluding the "\
+                    self.error_stream("In buildLocationsDict() excluding the "\
                                       "host %s because is not in the list of the "\
-                                      "available"%(self.get_name(),host))
+                                      "available"%(host))
                     argout = False
             except Exception,e:
-                self.error_stream("In %s.buildLocationsDict() exception for "\
-                                  "%s: %s"%(self.get_name(),repr(each),e))
+                self.error_stream("In buildLocationsDict() exception for "\
+                                  "%s: %s"%(repr(each),e))
                 argout = False
         attrValue = self._locations.keys()
         attrValue.sort()
@@ -143,8 +143,8 @@ class DeviceRelocator (PyTango.Device_4Impl):
         try:
             server = DeviceInstance(serverInstanceName,self._locations,self.get_logger(),self)
         except Exception,e:
-            self.error_stream("In %s.buildRelocatorObject(%s) Exception: %s"
-                              %(self.get_name(),serverInstanceName,e))
+            self.error_stream("In buildRelocatorObject(%s) Exception: %s"
+                              %(serverInstanceName,e))
             return None
         #TODO: dynattrs for this manager
         server.buildDynAttrs()
@@ -157,6 +157,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
         self._instanceMonitors[serverInstanceName]['Thread'].start()
         attrValue = self._instances.keys()
         attrValue.sort()
+        self.attr_Instances_read = attrValue
         self.fireEventsList([['Instances',attrValue]])
         return server
     
@@ -168,11 +169,12 @@ class DeviceRelocator (PyTango.Device_4Impl):
             self._instanceMonitors[serverInstanceName]['Event'].set()
             attrValue = self._instances.keys()
             attrValue.sort()
+            self.attr_Instances_read = attrValue
             self.fireEventsList([['Instances',attrValue]])
             argout = True
         except Exception,e:
-            self.debug_stream("In %s.destroyRelocatorObject(%s) exception: %s"
-                              %(self.get_name(),serverInstanceName,e))
+            self.debug_stream("In destroyRelocatorObject(%s) exception: %s"
+                              %(serverInstanceName,e))
             argout = False
         return argout
     #----- done Relocator Object builders and destroyers
@@ -185,16 +187,45 @@ class DeviceRelocator (PyTango.Device_4Impl):
         attrName = attr.get_name()
         instanceName,action = attrName.rsplit('_',1)
         instanceName = instanceName.replace('.','/')
-        self.debug_stream("In %s.read_attr() instance %s action %s"
-                          %(self.get_name(),instanceName,action))
+        self.debug_stream("In read_attr() instance %s action %s"
+                          %(instanceName,action))
         if action == 'state':
             value = self._instances[instanceName].getState()
+            attr.set_value(value)
         elif action == 'location':
-            value = self._instances[instanceName].currentLocation()
+            if self._instances[instanceName].getState() == PyTango.DevState.DISABLE:
+                attr.set_value_date_quality("",time.time(),PyTango.AttrQuality.ATTR_INVALID)
+            elif self._instances[instanceName].getState() == PyTango.DevState.MOVING:
+                value = self._instances[instanceName].currentLocation()
+                attr.set_value_date_quality(value,time.time(),PyTango.AttrQuality.ATTR_CHANGING)
+            else:
+                value = self._instances[instanceName].currentLocation()
+                attr.set_value(value)
+        elif action == 'waittime':
+            value = self._instances[instanceName].getWaitTime()
+            attr.set_value(value)
+        elif action == 'runlevel':
+            value = self._instances[instanceName].getRunLevel()
+            attr.set_value(value)
         else:
             raise AttributeError("Unrecognized action %s"%(repr(action)))
-        attr.set_value(value)
-        
+    
+    @AttrExc
+    def write_attr(self, attr):
+        attrName = attr.get_name()
+        instanceName,action = attrName.rsplit('_',1)
+        instanceName = instanceName.replace('.','/')
+        data = []
+        attr.get_write_value(data)
+        self.debug_stream("In write_attr() instance %s action %s (value %s)"
+                          %(instanceName,action,repr(data)))
+        if action == 'waittime':
+            self._instances[instanceName].setWaitTime(float(data[0]))
+        elif action == 'runlevel':
+            self._instances[instanceName].setRunLevel(int(data[0]))
+        else:
+            raise AttributeError("Unrecognized action %s"%(repr(action)))
+    
     #This method is used to update the attribute on an instance because the 
     #background movement can finish before a complete start up of the instance
     def __instanceMonitor(self,instanceName):
@@ -253,16 +284,16 @@ class DeviceRelocator (PyTango.Device_4Impl):
         self.__globals['module'] = DS_MODULE
         self.__locals = {}
         #Now really starts the device initialisation
-        self.debug_stream("In %s.init_device() instances %s and locations %s"
-                          %(self.get_name(),self.Instances,self.Locations))
+        self.debug_stream("In init_device() instances %s and locations %s"
+                          %(self.Instances,self.Locations))
         self.RefreshAvailableLocations()
         self.buildLocationsDict()
         self._instances = {}
         self._instanceMonitors = {}
         for each in self.Instances:
             server = self.buildRelocatorObject(each)
-            self.debug_stream("In %s.init_device() instances %s located in %s"
-                              %(self.get_name(),server.getName(),server.currentLocation()))
+            self.debug_stream("In init_device() instances %s located in %s"
+                              %(server.getName(),server.currentLocation()))
         
         self.change_state(PyTango.DevState.ON)
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.init_device
@@ -365,7 +396,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
                 self.Instances = self.__appendPropertyElement("Instances", argin)
                 return True
         except Exception,e:
-            self.error_stream("In %s.AddInstance() exception: %s"%(self.get_name(),e))
+            self.error_stream("In AddInstance() exception: %s"%(e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.AddInstance
         return argout
         
@@ -389,7 +420,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
                 self.Instances = self.__popPropertyElement("Instances",argin)
                 return True
         except Exception,e:
-            self.error_stream("In %s.RemoveInstance() exception: %s"%(self.get_name(),e))
+            self.error_stream("In RemoveInstance() exception: %s"%(e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.RemoveInstance
         return argout
         
@@ -419,7 +450,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
                 self.Locations = self.__popPropertyElement("Locations",argin)
                 return False
         except Exception,e:
-            self.error_stream("In %s.AddLocation() exception: %s"%(self.get_name(),e))
+            self.error_stream("In AddLocation() exception: %s"%(e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.AddLocation
         return argout
         
@@ -444,8 +475,8 @@ class DeviceRelocator (PyTango.Device_4Impl):
                 hostname = self._locations[tag]
                 argin = "%s:%s"%(tag,hostname)
         except Exception,e:
-            self.error_stream("In %s.RemoveLocation() not understood the "\
-                              "location %s"%(self.get_name(),argin))
+            self.error_stream("In RemoveLocation() not understood the "\
+                              "location %s"%(argin))
             return False
         if not tag in self._locations.keys():
             return False#raise ValueError("Location %s is not in the list"%(argin))
@@ -461,7 +492,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
                 server.setLocations(self._locations)
             return True
         except Exception,e:
-            self.error_stream("In %s.RemoveLocation() exception: %s"%(self.get_name(),e))
+            self.error_stream("In RemoveLocation() exception: %s"%(e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.RemoveLocation
         return argout
         
@@ -492,7 +523,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
                 server.move(destination)
                 return True
         except Exception,e:
-            self.error_stream("In %s.MoveInstance() exception: %s"%(self.get_name(),e))
+            self.error_stream("In MoveInstance() exception: %s"%(e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.MoveInstance
         return argout
         
@@ -555,8 +586,8 @@ class DeviceRelocator (PyTango.Device_4Impl):
             hostWithoutDomain = element.split('.')[0]
             if not hostWithoutDomain in rawLocations:
                 self._availableLocations.append(hostWithoutDomain)
-        self.debug_stream("In %s.RefreshAvailableLocations() found %s locations"
-                          %(self.get_name(),repr(self._availableLocations)))
+        self.debug_stream("In RefreshAvailableLocations() found %s locations"
+                          %(repr(self._availableLocations)))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.RefreshAvailableLocations
         
 #------------------------------------------------------------------
@@ -576,9 +607,57 @@ class DeviceRelocator (PyTango.Device_4Impl):
             for each in self.attr_Instances_read:
                 argout = self.MoveInstance([each,argin])
         except Exception,e:
-            self.error_stream("In %s.MoveAllInstances(%s) exception: %s"
-                              %(self.get_name(),argin,e))
+            self.error_stream("In MoveAllInstances(%s) exception: %s"
+                              %(argin,e))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.MoveAllInstances
+        return argout
+        
+#------------------------------------------------------------------
+#    RestartInstance command:
+#------------------------------------------------------------------
+    def RestartInstance(self, argin):
+        """ Given one of the instances monitored, use its astor object to stop and later start it.
+        
+        :param argin: 
+        :type: PyTango.DevString
+        :return: 
+        :rtype: PyTango.DevBoolean """
+        self.debug_stream("In " + self.get_name() +  ".RestartInstance()")
+        argout = False
+        #----- PROTECTED REGION ID(DeviceRelocator.RestartInstance) ENABLED START -----#
+        instanceName = argin
+        if not instanceName in self.Instances:
+            raise ValueError("Instance %s is not in the list"%(instanceName))
+        if not instanceName in self._instances.keys():
+            raise ValueError("Unknown instance %s"%(repr(instanceName)))
+        try:
+            server = self._instances[instanceName]
+            server.restart()
+            return True
+        except Exception,e:
+            self.error_stream("In RestartInstance() exception: %s"%(e))
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.RestartInstance
+        return argout
+        
+#------------------------------------------------------------------
+#    RestartAllInstance command:
+#------------------------------------------------------------------
+    def RestartAllInstance(self):
+        """ For each of the instances monitored, use its astor object to stop and later start it.
+        
+        :param : 
+        :type: PyTango.DevVoid
+        :return: 
+        :rtype: PyTango.DevBoolean """
+        self.debug_stream("In " + self.get_name() +  ".RestartAllInstance()")
+        argout = False
+        #----- PROTECTED REGION ID(DeviceRelocator.RestartAllInstance) ENABLED START -----#
+        try:
+            for each in self.attr_Instances_read:
+                argout = self.RestartInstance(each)
+        except Exception,e:
+            self.error_stream("In RestartAllInstance() exception: %s"%(e))
+        #----- PROTECTED REGION END -----#	//	DeviceRelocator.RestartAllInstance
         return argout
         
 
@@ -639,6 +718,18 @@ class DeviceRelocatorClass(PyTango.DeviceClass):
         'MoveAllInstances':
             [[PyTango.DevString, "none"],
             [PyTango.DevBoolean, "none"]],
+        'RestartInstance':
+            [[PyTango.DevString, "none"],
+            [PyTango.DevBoolean, "none"],
+            {
+                'Display level': PyTango.DispLevel.EXPERT,
+            } ],
+        'RestartAllInstance':
+            [[PyTango.DevVoid, "none"],
+            [PyTango.DevBoolean, "none"],
+            {
+                'Display level': PyTango.DispLevel.EXPERT,
+            } ],
         }
 
 
