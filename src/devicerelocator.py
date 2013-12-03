@@ -164,7 +164,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
         argout = False
         try:
             server = self._instances.pop(serverInstanceName)
-            #TODO: delete dynattrs
+            server.destroyDynAttrs()
             self._instanceMonitors[serverInstanceName]['Event'].set()
             attrValue = self._instances.keys()
             attrValue.sort()
@@ -189,7 +189,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
                           %(self.get_name(),instanceName,action))
         if action == 'state':
             value = self._instances[instanceName].getState()
-        elif action == 'hostname':
+        elif action == 'location':
             value = self._instances[instanceName].currentLocation()
         else:
             raise AttributeError("Unrecognized action %s"%(repr(action)))

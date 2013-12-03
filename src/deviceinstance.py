@@ -50,6 +50,7 @@ class DeviceInstance:
         self._device = device
         self._waitTime = waitTime
         self._retries = 5
+        self._dynAttrs = []
         if self._astor.load_by_name(instance) != 1:
             raise NameError("Instance name does not resolve a unique instance")
 
@@ -111,13 +112,13 @@ class DeviceInstance:
             state = ["%s_state"%(self.getName()),self.getState()]
             try:
                 if state[1] == PyTango.DevState.MOVING:
-                    host = ["%s_hostname"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_CHANGING]
+                    host = ["%s_location"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_CHANGING]
                 elif state[1] == PyTango.DevState.DISABLE:
-                    host = ["%s_hostname"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_INVALID]
+                    host = ["%s_location"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_INVALID]
                 else:
-                    host = ["%s_hostname"%(self.getName()),self.currentLocation()]
+                    host = ["%s_location"%(self.getName()),self.currentLocation()]
             except:
-                host = ["%s_hostname"%(self.getName()),"",PyTango.AttrQuality.ATTR_INVALID]
+                host = ["%s_location"%(self.getName()),"",PyTango.AttrQuality.ATTR_INVALID]
             self._device.fireEventsList([state,host])
 
     def currentLocation(self):
@@ -182,20 +183,25 @@ class DeviceInstance:
     #---- This methods are only used when the object lives inside a DeviceServer
     def buildDynAttrs(self):
         if self._device:
-            #proxy the state of the instance monitored
-            dynAttrs = [["%s_state"%(self._instance.replace('/','.')),
-                         PyTango.CmdArgType.DevState],
-                        ["%s_hostname"%(self._instance.replace('/','.')),
-                         PyTango.CmdArgType.DevString]
-                       ]
-            for attrDescription in dynAttrs:
-                attr = PyTango.Attr(attrDescription[0],attrDescription[1],PyTango.READ)
+            dynAttrDesc = [#proxy the state of the instance monitored
+                           {'AttrName':"%s_state"%(self._instance.replace('/','.')),
+                            'AttrType':PyTango.CmdArgType.DevState},
+                           #from the location list, show in which it is running
+                           {'AttrName':"%s_location"%(self._instance.replace('/','.')),
+                            'AttrType':PyTango.CmdArgType.DevString}]
+            for attrDesc in dynAttrDesc:
+                attr = PyTango.Attr(attrDesc['AttrName'],attrDesc['AttrType'],PyTango.READ)
                 readmethod = AttrExc(getattr(self._device,'read_attr'))
+                self._dynAttrs.append(attrDesc['AttrName'])
                 self._device.add_attribute(attr, r_meth=readmethod)
-                self._device.set_change_event(attrDescription[0],True,False)
+                self._device.set_change_event(attrDesc['AttrName'],True,False)
 
-    def destroyDynAttrs(self,attr):
-        pass#TODO
+    def destroyDynAttrs(self):
+        if self._device:
+            self.debug("In %s.destroyDynAttrs(): %s"%(self._instance,self._dynAttrs))
+            for attrName in self._dynAttrs:
+                self._device.set_change_event(attrName,False,False)
+                self._device.remove_attribute(attrName)
     #---- End attribute builders and destroyers
     #####
 
