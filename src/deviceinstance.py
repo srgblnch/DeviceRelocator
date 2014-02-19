@@ -128,7 +128,7 @@ class DeviceInstance:
         try:
             return self._reverseLocations[hostname]
         except:
-            raise Exception("Unmanaged location %s"%(hostname))
+            return hostname # raise Exception("Unmanaged location %s"%(hostname))
     def getRunLevel(self):
         return self._astor.get_server_level(self._instance)[1]
     def getRunLevelDestination(self):
@@ -190,7 +190,7 @@ class DeviceInstance:
             self.stateChance()
         except Exception,e:
             self.error("In %s.BackgroundMovement() exception: %s"%(self._instance,e))
-        time.sleep(self._waitTime)
+        time.sleep(self._waitTime*2)
         self.stateChance()
         self.info("In %s.BackgroundMovement done to %s"%(self._instance,self.currentLocation()))
 

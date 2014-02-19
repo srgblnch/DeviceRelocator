@@ -60,14 +60,26 @@ class DeviceRelocator (PyTango.Device_4Impl):
         timestamp = time.time()
         for attrEvent in eventsAttrList:
             try:
-                #self.debug_stream("In fireEventsList() attribute: %s"%(attrEvent[0]))
+#                self.debug_stream("In fireEventsList() attribute: %s"
+#                                  %(attrEvent[0]))
                 if len(attrEvent) == 3:#specifies quality
-                    self.push_change_event(attrEvent[0],attrEvent[1],timestamp,attrEvent[2])
+                    self.push_change_event(attrEvent[0],attrEvent[1],
+                                           timestamp,attrEvent[2])
                 else:
-                    self.push_change_event(attrEvent[0],attrEvent[1],timestamp,PyTango.AttrQuality.ATTR_VALID)
+                    self.push_change_event(attrEvent[0],attrEvent[1],
+                                           timestamp,PyTango.AttrQuality.ATTR_VALID)
             except Exception,e:
-                self.error_stream("In fireEventsList() Exception with attribute %s: %s"%(attrEvent[0],e))
+                self.error_stream("In fireEventsList() for attribute %s "\
+                                  "(value %s) Exception: '%s'"
+                                  %(attrEvent[0],attrEvent[1],e))
                 traceback.print_exc()
+                try:
+                    self.push_change_event(attrEvent[0],None,timestamp,
+                                           PyTango.AttrQuality.ATTR_INVALID)
+                except Exception,e:
+                    self.error_stream("In fireEventList() for INVALID "\
+                                      "attribute %s Exception: '%s'"
+                                      %(attrEvent[0],e))
     #@todo: clean the important logs when they loose importance.
     def change_state(self,newstate):
         self.debug_stream("In change_state(%s)"%(str(newstate)))
@@ -123,13 +135,14 @@ class DeviceRelocator (PyTango.Device_4Impl):
         for each in self.Locations:
             try:
                 tag,host = each.split(':')
-                if host in self._availableLocations:
-                    self._locations[tag] = host
-                else:
-                    self.error_stream("In buildLocationsDict() excluding the "\
-                                      "host %s because is not in the list of the "\
-                                      "available"%(host))
-                    argout = False
+                self._locations[tag] = host
+                #if host in self._availableLocations:
+                    #self._locations[tag] = host
+                #else:
+                    #self.error_stream("In buildLocationsDict() excluding the "\
+                                      #"host %s because is not in the list of the "\
+                                      #"available"%(host))
+                    #argout = False
             except Exception,e:
                 self.error_stream("In buildLocationsDict() exception for "\
                                   "%s: %s"%(repr(each),e))
@@ -292,8 +305,12 @@ class DeviceRelocator (PyTango.Device_4Impl):
         self._instanceMonitors = {}
         for each in self.Instances:
             server = self.buildRelocatorObject(each)
+            try:
+                location = server.currentLocation()
+            except:
+                location = 'off control location'
             self.debug_stream("In init_device() instances %s located in %s"
-                              %(server.getName(),server.currentLocation()))
+                              %(server.getName(),location))
         
         self.change_state(PyTango.DevState.ON)
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.init_device

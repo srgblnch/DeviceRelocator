@@ -13,9 +13,9 @@ fi
 
 DNAME=DeviceRelocator
 
-DIR=$SICILIA/ds/suse111
+DIR=$SICILIA/ds/python/$DNAME
 if [[ $1 == "-?" ]] ; then
     $DIR/$DNAME $1
 else
-    screen -dm -S $DNAME-$1 $DIR/$DNAME $1 $VERBOSE
+    screen -dm -S $DNAME-$1 $DIR/$DNAME.py $1 $VERBOSE
 fi
