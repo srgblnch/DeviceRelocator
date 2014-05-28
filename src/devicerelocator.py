@@ -163,8 +163,9 @@ class DeviceRelocator (PyTango.Device_4Impl):
         server.buildDynAttrs()
         self._instances[serverInstanceName] = server
         self._instanceMonitors[serverInstanceName] = {}
-        self._instanceMonitors[serverInstanceName]['Thread'] = threading.Thread(target=self.__instanceMonitor,
-                                                                                args=([serverInstanceName]))
+        self._instanceMonitors[serverInstanceName]['Thread'] = \
+                                threading.Thread(target=self.__instanceMonitor,
+                                                   args=([serverInstanceName]))
         self._instanceMonitors[serverInstanceName]['Event'] = threading.Event()
         self._instanceMonitors[serverInstanceName]['Event'].clear()
         self._instanceMonitors[serverInstanceName]['Thread'].start()
@@ -242,13 +243,20 @@ class DeviceRelocator (PyTango.Device_4Impl):
     #This method is used to update the attribute on an instance because the 
     #background movement can finish before a complete start up of the instance
     def __instanceMonitor(self,instanceName):
+        self.debug_stream("Starting %s instance monitor"%(instanceName))
         oldValue = self._instances[instanceName].getState()
         while not self._instanceMonitors[instanceName]['Event'].is_set():
-            newValue = self._instances[instanceName].getState()
-            if oldValue != newValue:
-                self._instances[instanceName].stateChance()
-                oldValue = newValue
-            time.sleep(self.attr_InstanceMonitorPeriod_read)
+            try:
+                newValue = self._instances[instanceName].getState()
+                if oldValue != newValue:
+                    self.debug_stream("%s instance monitor is %s (was %s)"%(instanceName,newValue,oldValue))
+                    self._instances[instanceName].stateChange()
+                    oldValue = newValue
+                time.sleep(self.attr_InstanceMonitorPeriod_read)
+            except Exception,e:
+                self.error_stream("Exception monitoring the instance %s: %s"
+                                  %(instanceName,e))
+        self.debug_stream("Finishing %s instance monitor"%(instanceName))
         #FIXME: this method is a bit hackish...
     #----- done dynattr section
     ######
@@ -586,7 +594,7 @@ class DeviceRelocator (PyTango.Device_4Impl):
 #    RefreshAvailableLocations command:
 #------------------------------------------------------------------
     def RefreshAvailableLocations(self):
-        """ Chech the database to know the available locations for the servers.
+        """ Check the database to know the available locations for the servers.
         
         :param : 
         :type: PyTango.DevVoid
@@ -606,7 +614,23 @@ class DeviceRelocator (PyTango.Device_4Impl):
         self.debug_stream("In RefreshAvailableLocations() found %s locations"
                           %(repr(self._availableLocations)))
         #----- PROTECTED REGION END -----#	//	DeviceRelocator.RefreshAvailableLocations
+
+#------------------------------------------------------------------
+#    RefreshInstances command:
+#------------------------------------------------------------------
+    def RefreshInstances(self):
+        """ Review the state of the instances managed.
         
+        :param : 
+        :type: PyTango.DevVoid
+        :return: 
+        :rtype: PyTango.DevVoid """
+        self.debug_stream("In " + self.get_name() +  ".RefreshInstances()")
+        #----- PROTECTED REGION ID(DeviceRelocator.RefreshInstances) ENABLED START -----#
+        for instanceName in self._instances.keys():
+            self._instances[instanceName].stateChange()
+        #----- PROTECTED REGION END -----#    //    DeviceRelocator.RefreshInstances
+
 #------------------------------------------------------------------
 #    MoveAllInstances command:
 #------------------------------------------------------------------
@@ -727,6 +751,12 @@ class DeviceRelocatorClass(PyTango.DeviceClass):
                 'Display level': PyTango.DispLevel.EXPERT,
             } ],
         'RefreshAvailableLocations':
+            [[PyTango.DevVoid, "none"],
+            [PyTango.DevVoid, "none"],
+            {
+                'Display level': PyTango.DispLevel.EXPERT,
+            } ],
+        'RefreshInstances':
             [[PyTango.DevVoid, "none"],
             [PyTango.DevVoid, "none"],
             {

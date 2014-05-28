@@ -16,7 +16,7 @@ Locations = {'local':'ctpcdevel01',#'cli0303'
              'remote':'ctpcdevel02',#'cli0301'
             }
 RunLevel = 1
-waitTime = 3.0#an smaller value can cause problems in the moving procedure
+waitTime = 2.0#an smaller value can cause problems in the moving procedure
 
 #LinacDevices = {}
 #for each in Instances:
@@ -107,18 +107,19 @@ class DeviceInstance:
         else:
             state = PyTango.DevState.DISABLE
         return state
-    def stateChance(self):
+    def stateChange(self):
         if self._device:
             state = ["%s_state"%(self.getName()),self.getState()]
+            locationAttrName = "%s_location"%(self.getName())
             try:
                 if state[1] == PyTango.DevState.MOVING:
-                    host = ["%s_location"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_CHANGING]
+                    host = [locationAttrName,self.currentLocation(),PyTango.AttrQuality.ATTR_CHANGING]
                 elif state[1] == PyTango.DevState.DISABLE:
-                    host = ["%s_location"%(self.getName()),self.currentLocation(),PyTango.AttrQuality.ATTR_INVALID]
+                    host = [locationAttrName,self.currentLocation(),PyTango.AttrQuality.ATTR_INVALID]
                 else:
-                    host = ["%s_location"%(self.getName()),self.currentLocation()]
+                    host = [locationAttrName,self.currentLocation()]
             except:
-                host = ["%s_location"%(self.getName()),"",PyTango.AttrQuality.ATTR_INVALID]
+                host = [locationAttrName,"",PyTango.AttrQuality.ATTR_INVALID]
             self._device.fireEventsList([state,host])
 
     def currentLocation(self):
@@ -164,7 +165,7 @@ class DeviceInstance:
             time.sleep(self._waitTime)
             if self.isAlive():
                 self._astor.stop_servers([self._instance])
-                self.stateChance()
+                self.stateChange()
                 retries = self._retries
                 time.sleep(self._waitTime)
                 while self.isAlive() and retries != 0:
@@ -173,7 +174,7 @@ class DeviceInstance:
                     time.sleep(self._waitTime)
                 if retries == 0:
                     self.error("In %s.BackgroundMovement() stop cannot waiting anymore"%(self._instance))
-                self.stateChance()
+                self.stateChange()
             time.sleep(self._waitTime)
             if not self.isAlive():
                 self._astor.start_servers([self._instance])
@@ -185,13 +186,13 @@ class DeviceInstance:
                     time.sleep(self._waitTime)
                 if retries == 0:
                     self.error("In %s.BackgroundMovement() start cannot waiting anymore"%(self._instance))
-                self.stateChance()
+                self.stateChange()
             time.sleep(self._waitTime)
-            self.stateChance()
+            self.stateChange()
         except Exception,e:
             self.error("In %s.BackgroundMovement() exception: %s"%(self._instance,e))
         time.sleep(self._waitTime*2)
-        self.stateChance()
+        self.stateChange()
         self.info("In %s.BackgroundMovement done to %s"%(self._instance,self.currentLocation()))
 
     #####
